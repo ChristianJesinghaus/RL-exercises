@@ -1,0 +1,22 @@
+{
+  "action_dim": 3,
+  "best_eval_success_rate": 1.0,
+  "beta": 0.0,
+  "elapsed_seconds": 123.67930879001506,
+  "final_eval_extrinsic_return": 0.937,
+  "final_eval_success_rate": 1.0,
+  "first_reward_step": 900,
+  "method": "dqn",
+  "observation_dim": 167,
+  "position_coverage": 1.0,
+  "seed": 3,
+  "status": "complete",
+  "success_rate_auc": 0.645,
+  "third_reward_step": 4806,
+  "total_steps": 100000,
+  "training_successes": 1998,
+  "training_tv_fraction": 0.07509,
+  "unique_abstract_states": 271,
+  "unique_observations": 7752,
+  "unique_positions": 68
+}
