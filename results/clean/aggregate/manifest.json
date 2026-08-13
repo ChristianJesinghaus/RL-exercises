@@ -1,0 +1,22 @@
+{
+  "complete_runs": 15,
+  "files": [
+    "aggregate_summary.csv",
+    "diagnostics_all.csv",
+    "evaluations_all.csv",
+    "per_run_summary.csv",
+    "plots/extrinsic_return.png",
+    "plots/heatmap_dqn.png",
+    "plots/heatmap_lp_rnd_beta_0_01.png",
+    "plots/heatmap_rnd_beta_0_01.png",
+    "plots/intrinsic_inside_outside.png",
+    "plots/position_coverage.png",
+    "plots/success_rate.png",
+    "plots/tv_fraction.png"
+  ],
+  "labels": [
+    "DQN",
+    "LP-RND (beta=0.01)",
+    "RND (beta=0.01)"
+  ]
+}

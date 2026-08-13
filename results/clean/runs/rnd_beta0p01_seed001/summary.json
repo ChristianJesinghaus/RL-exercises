@@ -1,0 +1,22 @@
+{
+  "action_dim": 3,
+  "best_eval_success_rate": 1.0,
+  "beta": 0.01,
+  "elapsed_seconds": 232.98688831110485,
+  "final_eval_extrinsic_return": 0.0,
+  "final_eval_success_rate": 0.0,
+  "first_reward_step": 3141,
+  "method": "rnd",
+  "observation_dim": 167,
+  "position_coverage": 1.0,
+  "seed": 1,
+  "status": "complete",
+  "success_rate_auc": 0.1,
+  "third_reward_step": 7847,
+  "total_steps": 100000,
+  "training_successes": 1201,
+  "training_tv_fraction": 0.08009,
+  "unique_abstract_states": 271,
+  "unique_observations": 259,
+  "unique_positions": 68
+}
