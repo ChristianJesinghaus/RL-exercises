@@ -37,7 +37,7 @@ crossings while making walls and openings locally identifiable.
 - `networks.py`: Q/RND MLPs and replay buffer.
 - `intrinsic.py`: RND and lagged-predictor LP-RND.
 - `experiment.py`: one training run, evaluation, diagnostics, and checkpoints.
-- `sweep.py`: `smoke`, `pilot`, and `main` experiment matrices.
+- `sweep.py`: `smoke`, `pilot`, `main`, and `clean` experiment matrices.
 - `aggregate.py`: bootstrap curves, tables, intrinsic diagnostics, and heatmaps.
 
 ## Quick start
@@ -69,7 +69,16 @@ Inspect a matrix without running it:
 ```bash
 python -m rl_exercises.final_project.sweep main --dry-run
 ```
+The clean-control matrix disables the stochastic TV vector and reproduces the
+15-run sanity check: DQN, RND, and LP-RND with five seeds, using `beta=0.01`
+for the intrinsic methods.
 
+Because `results/clean/` already contains the reported runs, use a fresh output
+directory when reproducing the control:
+
+```bash
+python -m rl_exercises.final_project.sweep clean \
+  --output-dir results/reproduction_clean
 Run a single configuration:
 
 ```bash
