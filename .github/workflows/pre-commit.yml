@@ -1,16 +1,13 @@
 name: pre-commit
 
 on:
-  # Manually triggerable in github
   workflow_dispatch:
 
-  # When a push occurs on either of these branches
   push:
     branches:
       - main
       - development
 
-  # When a push occurs on a PR that targets these branches
   pull_request:
     branches:
       - main
@@ -18,10 +15,8 @@ on:
 
 env:
   package-name: "rl_exercises"
-  UV_SYSTEM_PYTHON: 1
 
 jobs:
-
   run-all-files:
     runs-on: ubuntu-latest
 
@@ -32,16 +27,23 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          # Install a specific version of uv.
           version: "0.6.14"
 
-      - name: "Set up Python"
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version-file: "pyproject.toml"
 
-      - name: Install ${{ env.package-name }}
-        run: make install
+      - name: Install SWIG
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes swig
+
+      - name: Install locked dependencies
+        run: uv sync --extra dev --frozen
 
       - name: Run pre-commit
-        run: make pre-commit
+        run: uv run pre-commit run --all-files
+
+      - name: Run final-project tests
+        run: uv run pytest tests/final_project -q
