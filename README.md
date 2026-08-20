@@ -1,4 +1,47 @@
 # RL_exercises
+
+## Final Project: Can Intrinsic Rewards Ignore the Noisy TV?
+
+**Author:** Christian Jesinghaus
+
+**Research question:** Can learning-progress-gated Random Network Distillation
+avoid noisy-TV distraction while preserving the exploration benefit of
+intrinsic rewards in sparse-reward MiniGrid?
+
+This project compares an extrinsic-only Double DQN baseline with standard
+Random Network Distillation (RND) and a learning-progress-gated variant
+(LP-RND) in a controlled MiniGrid FourRooms environment. LP-RND substantially
+attenuates the intrinsic signal caused by the stochastic distractor, but does
+not reliably reduce distractor visitation or outperform the DQN baseline.
+
+### Project material
+
+- [Final-project source code](rl_exercises/final_project/)
+- [Final-project tests](tests/final_project/)
+- [Noisy-TV results: 35 runs](results/main/)
+- [Clean-control results: 15 runs](results/clean/)
+- [Result documentation and reproduction](results/README.md)
+- [SHA-256 artifact manifest](results/SHA256SUMS)
+- [Final report source](final_project/report.tex)
+- [Final report PDF](final_project/report.pdf)
+- [Poster in Google Slides](https://docs.google.com/presentation/d/1PzbG9yEkm_U5BohGgoPV5AqeIblFksgSRxyDa3qFiPk/edit)
+- [Contributions, external assets, and AI disclosure](CONTRIBUTIONS.md)
+
+### Quick reproduction
+
+```bash
+uv sync --extra dev --frozen
+uv run pytest tests/final_project -q
+
+# Inspect the experiment matrices without starting training
+uv run python -m rl_exercises.final_project.sweep main --dry-run
+uv run python -m rl_exercises.final_project.sweep clean --dry-run
+```
+
+The final-project module is isolated from the weekly course exercises. The
+original course-repository documentation continues below.
+
+
 Welcome to the RL exercises repository! You will work with this repository for the duration of the course, so please take your time to familiarize yourself with its structure.
 
 ## Excercises
