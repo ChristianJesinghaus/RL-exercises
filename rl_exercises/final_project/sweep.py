@@ -1,10 +1,11 @@
-"""Run the smoke, pilot, or main experiment matrix.
+"""Run the smoke, pilot, main, or clean experiment matrix.
 
 Preset sizes
 ------------
 smoke: 3 short runs (one per method)
 pilot: 9 runs (three methods x three seeds, beta=0.01)
 main: 35 runs (DQN x 5 seeds; RND and LP-RND x 3 betas x 5 seeds)
+clean: 15 runs (three methods x five seeds, beta=0.01, Noisy TV disabled)
 """
 
 from __future__ import annotations
@@ -22,8 +23,7 @@ from typing import Literal
 
 from rl_exercises.final_project.experiment import ExperimentConfig
 
-Preset = Literal["smoke", "pilot", "main"]
-
+Preset = Literal["smoke", "pilot", "main", "clean"]
 
 def beta_slug(beta: float) -> str:
     return f"{beta:g}".replace(".", "p")
@@ -92,6 +92,31 @@ def preset_configs(preset: Preset, output_root: str | Path) -> list[ExperimentCo
                 )
         return configs
 
+    if preset == "clean":
+        base = ExperimentConfig(
+            total_steps=100_000,
+            beta=0.01,
+            noisy_tv=False,
+            eval_interval=10_000,
+            eval_episodes=20,
+            log_interval=1_000,
+        )
+        for seed in range(5):
+            for method in ("dqn", "rnd", "lp_rnd"):
+                beta = 0.0 if method == "dqn" else 0.01
+                name = run_name(method, beta, seed)
+                configs.append(
+                    replace(
+                        base,
+                        method=method,
+                        beta=beta,
+                        seed=seed,
+                        output_dir=str(root / "runs" / name),
+                    )
+                )
+        return configs    
+
+    
     if preset == "main":
         base = ExperimentConfig(
             total_steps=100_000,
@@ -243,7 +268,7 @@ def execute_sweep(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("preset", choices=("smoke", "pilot", "main"))
+    parser.add_argument("preset", choices=("smoke", "pilot", "main", "clean"))
     parser.add_argument(
         "--output-dir",
         help=("Fresh result directory. Default: results/<preset>_<YYYYmmdd_HHMMSS>"),
@@ -281,6 +306,7 @@ def main() -> None:
                         "beta": config.beta,
                         "seed": config.seed,
                         "total_steps": config.total_steps,
+                        "noisy_tv": config.noisy_tv,
                     }
                     for config in configs
                 ],
