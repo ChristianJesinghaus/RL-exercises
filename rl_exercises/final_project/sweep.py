@@ -6,6 +6,8 @@ smoke: 3 short runs (one per method)
 pilot: 9 runs (three methods x three seeds, beta=0.01)
 main: 35 runs (DQN x 5 seeds; RND and LP-RND x 3 betas x 5 seeds)
 clean: 15 runs (three methods x five seeds, beta=0.01, Noisy TV disabled)
+ChatGPT 5.5 Thinking was used for parts of code production, review and overall help in this file.
+
 """
 
 from __future__ import annotations
