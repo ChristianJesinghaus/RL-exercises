@@ -1,4 +1,7 @@
-"""Neural networks and replay buffer used by the final-project agents."""
+"""Neural networks and replay buffer used by the final-project agents.
+ChatGPT 5.5 Thinking was used for parts of code production, review and overall help in this file.
+
+"""
 
 from __future__ import annotations
 
