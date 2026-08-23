@@ -1,4 +1,6 @@
-"""Aggregate completed runs into CSV summaries, curves, and heatmaps."""
+"""Aggregate completed runs into CSV summaries, curves, and heatmaps.
+ChatGPT 5.5 Thinking was used for parts of code production, review and overall help in this file.
+"""
 
 from __future__ import annotations
 
