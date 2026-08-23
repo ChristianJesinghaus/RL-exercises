@@ -1,4 +1,4 @@
-% This is a variation of the NeurIPS'24 format.
+% This is a variation of the NeurIPS'24 format
 \documentclass{article}
 \usepackage[final]{adrl}
 
@@ -14,120 +14,77 @@
 \usepackage{xcolor}
 
 \title{Can Intrinsic Rewards Ignore the Noisy TV?\\
-A MiniGrid Study of Reducible vs.\ Irreducible Novelty}
-\author{Christian Jesinghaus\\
-\url{https://github.com/ChristianJesinghaus/RL-exercises}}
+A MiniGrid Study of Reducible vs. Irreducible Novelty}
+\author{Christian Jesinghaus \\
+\url{I will enter my repo here}}
 
 \begin{document}
 \maketitle
 
 \section{Motivation}
-Intrinsic rewards can help exploration under sparse extrinsic rewards, but
-prediction-error bonuses can fail on irrelevant stochastic observations. This
-failure is known as the \emph{noisy-TV problem}: random observations remain
-surprising although they do not help solve the task. I study whether a simple
-Random Network Distillation (RND) variant based on learning progress reduces
-this failure.
+Intrinsic rewards can help in sparse-reward exploration, but prediction-error bonuses can fail on irrelevant stochastic observations. This failure is known as the \emph{noisy-TV problem}: random observations stay surprising, although they do not help to solve the task. I therefore study whether a simple RND variant based on learning progress can reduce this failure.
 
 \textbf{Research question:}
 \begin{quote}
-Can learning-progress-gated RND avoid noisy-TV distraction while preserving
-the exploration benefit of intrinsic rewards in sparse-reward MiniGrid?
+Can learning-progress-gated RND avoid noisy-TV distraction while keeping the exploration benefit of intrinsic rewards in sparse-reward MiniGrid?
 \end{quote}
 
-Here, \emph{robustness} means maintaining extrinsic task performance without
-spending excessive time at an irrelevant stochastic distractor.
+Here, \emph{robustness} means that extrinsic performance and distractor avoidance do not collapse when irrelevant observation noise is added or increased.
 
 \section{Related Topics}
-The project builds on Deep Q-Networks (DQN)~\citep{mnih-nature15},
-Double DQN~\citep{vanhasselt-aaai16}, count-based exploration as
-background~\citep{bellemare-nips16}, and RND~\citep{burda-iclr19}.
-Kayal et al.~\citep{kayal2025impact} compare intrinsic rewards in MiniGrid using
-return and coverage metrics. The contribution here is a controlled noisy-TV
-stress test and a learning-progress gate inspired by work on irreducible
-uncertainty and noisy-TV avoidance~\citep{mavorparker2022noisytv,hou2025beyond}.
+The project is based on DQN~\citep{mnih-nature15}, count-based exploration~\citep{bellemare-nips16}, and Random Network Distillation (RND)~\citep{burda-iclr19}. The original idea was a comparison of DQN, Count, and RND in standard MiniGrid. Since this is close to tuning the intrinsic-reward coefficient $\beta$, I move the focus to a diagnostic setting.
 
-\section{Method}
-\paragraph{Environment.}
-I use a controlled $11\times11$ FourRooms variant implemented with
-MiniGrid~\citep{minigrid2023}. It has a fixed start, goal, and four door
-openings; the route to the goal crosses two room boundaries. The compact layout
-keeps walls and openings locally identifiable to a feed-forward DQN while
-retaining MiniGrid's partial $7\times7\times3$ observation.
+Kayal et al.~\citep{kayal2025impact} already study intrinsic rewards in MiniGrid using metrics such as return, observation coverage, position coverage, entropy, and reward-discovery time. The new part here is the noisy-TV stress test and a simple learning-progress gate, inspired by work on noisy-TV failures and reducible vs. irreducible uncertainty~\citep{mavorparker2022noisytv,hou2025beyond}.
 
-A fixed region near the start acts as the noisy TV. While the agent is in this
-region, the environment appends a randomly resampled, task-irrelevant vector to
-the partial observation. The distractor changes neither transitions, extrinsic
-reward, goal position, nor the shortest path. All compared methods receive the
-same full observation: symbolic image, MiniGrid's direction field, and the TV
-vector.
-
-True $(x,y)$ position is never an input to DQN, RND, or LP-RND. Position and
-$(x,y,\mathrm{direction})$ are privileged information used only for logging,
-coverage, distractor diagnostics, and heatmaps.
+\section{Idea}
+I will modify \texttt{MiniGrid-FourRooms-v0} by adding a noisy-TV distractor. The distractor changes an irrelevant observation feature randomly when observed or visited. It does not change transitions, rewards, goal position, or the shortest path to the goal.
 
 \paragraph{Compared agents.}
 \begin{enumerate}
-    \item \textbf{DQN}: extrinsic reward only and $\epsilon$-greedy exploration.
-    \item \textbf{DQN+RND}: a fixed random target and a trainable predictor,
-    with prediction error as intrinsic reward.
-    \item \textbf{DQN+LP-RND}: RND gated by progress relative to a lagged
-    predictor snapshot.
+    \item \textbf{DQN}: extrinsic reward only, $\epsilon$-greedy exploration.
+    \item \textbf{DQN+Count}: position/abstract-state count bonus.
+    \item \textbf{DQN+RND}: standard prediction-error bonus.
+    \item \textbf{DQN+LP-RND}: RND bonus gated by learning progress.
 \end{enumerate}
 
-All methods share the same Double-DQN backbone and hyperparameters. Let $o_t$
-denote the complete partial observation, $f$ the frozen RND target,
-$g_{\theta}$ the current predictor, and $g_{\bar{\theta}}$ a lagged predictor.
-The errors are
-\begin{align}
-e_{\mathrm{cur}}(o_t) &=
-  \lVert g_{\theta}(o_t)-f(o_t)\rVert_2^2,\\
-e_{\mathrm{old}}(o_t) &=
-  \lVert g_{\bar{\theta}}(o_t)-f(o_t)\rVert_2^2.
-\end{align}
-Standard RND uses $r_t^{\mathrm{RND}}=e_{\mathrm{cur}}(o_t)$. LP-RND uses
+For RND, $r'_t=r^{\mathrm{ext}}_t+\beta r^{\mathrm{RND}}_t$. For LP-RND, let $\bar e(s)$ be an exponential moving average of the RND prediction error for abstract state $s=(x,y,\mathrm{direction})$. The intrinsic bonus is
 \begin{equation}
-r_t^{\mathrm{LP}} =
-\max\!\left(0,e_{\mathrm{old}}(o_t)-e_{\mathrm{cur}}(o_t)\right).
+    r^{\mathrm{LP}}_t = \max(0, \bar e_{\mathrm{old}}(s_t)-\bar e_{\mathrm{new}}(s_t)).
 \end{equation}
-Thus, high but non-reducible prediction error should yield little LP reward.
-Training uses $r'_t=r_t^{\mathrm{ext}}+\beta r_t^{\mathrm{int}}$, after online
-normalization and clipping of the intrinsic signal. Evaluation uses only
-extrinsic reward.
+High but non-decreasing prediction error should therefore give little reward. My hypothesis is that RND is attracted to the noisy TV, while LP-RND spends fewer steps there and keeps higher extrinsic success.
 
 \section{Experiments}
+\paragraph{Environment.}
+Main task: \texttt{MiniGrid-FourRooms-v0}. Variants: clean FourRooms and noisy-TV FourRooms with noise intensity $p\in\{0.25,0.5,1.0\}$. If time allows, I will also move the distractor to a second room to check whether the result depends on its location.
+
 \paragraph{Metrics.}
-Task performance comprises greedy evaluation return, success rate, area under
-the success-rate curve, and steps to the first and third reward discoveries.
-Failure-mode diagnostics comprise position coverage, unique
-$(x,y,\mathrm{direction})$ states, hashes of full partial observations,
-training fraction in the TV region, visitation heatmaps, and RND/LP signals
-inside versus outside the TV region.
+Task performance: extrinsic evaluation return, success rate, area under the success-rate curve, and steps until first/third reward discovery. Evaluation uses extrinsic reward only.
+
+Exploration and failure-mode metrics:
+\begin{itemize}
+    \item \textbf{Position coverage:} $|\{(x,y)\}|/|\mathcal X_{\mathrm{reachable}}|$.
+    \item \textbf{Abstract-state coverage:} unique $(x,y,\mathrm{direction})$ states.
+    \item \textbf{Observation coverage:} hashes of full observations.
+    \item \textbf{Noisy-TV attraction:} fraction of training steps in the distractor region.
+    \item RND error and LP signal inside vs. outside the distractor region.
+\end{itemize}
 
 \paragraph{Protocol.}
-I first run a three-seed pilot with DQN, RND, and LP-RND for 50k steps in noisy
-FourRooms, using $\beta=0.01$ for both intrinsic methods. The pilot checks
-whether reward is discovered and whether ordinary RND exhibits the expected
-noisy-TV failure. I scale up only if this gate is passed.
+I first run small pilots to check that the noisy-TV wrapper works and that standard RND is distracted. The main comparison uses 10 seeds, fixed DQN hyperparameters, and a fixed training budget. I will choose one $\beta$ from the pilot and keep it fixed for the main runs. At most one small $\beta$ sensitivity check is planned; the main ablation is clean vs. noisy and different noise intensities.
 
-The main noisy-TV experiment uses five seeds. DQN is run once per seed; RND and
-LP-RND use the small pre-specified sensitivity set
-$\beta\in\{0.01,0.05,0.1\}$, giving 35 runs in total. The beta sweep is an
-ablation, not a broad hyperparameter search. If time remains after the main
-experiment, I run a clean FourRooms sanity check using the selected beta.
+\section{Timeline}
+\begin{itemize}
+    \item \textbf{Week 1:} set up repository, reproduce DQN/RND baseline, implement Noisy-FourRooms wrapper and logging.
+    \item \textbf{Week 2:} implement Count bonus and LP-RND; add coverage, distractor, and intrinsic-signal metrics; run smoke tests.
+    \item \textbf{Week 3:} run pilot experiments, select fixed $\beta$, verify the RND noisy-TV failure case.
+    \item \textbf{Week 4:} run main 10-seed experiments for clean and noisy variants; rerun failed/unstable seeds if needed.
+    \item \textbf{Week 5:} aggregate plots, write report, clean code/configs, prepare poster and Q\&A notes.
+\end{itemize}
 
-\section{Expected Outcome and Scope}
-I expect standard RND to retain high prediction error at the stochastic
-distractor and sometimes sacrifice extrinsic performance. LP-RND should reduce
-the inside-TV intrinsic signal and ideally reduce distractor visits while
-preserving useful exploration. Count-based exploration, additional
-environments, and more complex ensemble or recurrent methods are outside the
-main scope.
+Expected result: RND should help in the clean sparse-reward task but can be misled by irreducible observation noise. LP-RND should reduce distractor visits while preserving useful exploration.
 
 \paragraph{AI assistance disclosure}
-I used ChatGPT as a peer for discussing the idea, challenging design choices,
-wording, implementation support, and debugging. I will inspect the code,
-execute the experiments, and verify all analysis and final claims myself.
+I used ChatGPT to discuss the project idea, wording, and literature search. The implementation, experiments, analysis, and final claims will be checked by me.
 
 \bibliography{references}
 \bibliographystyle{plainnat}

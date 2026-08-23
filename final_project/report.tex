@@ -1,0 +1,299 @@
+% Final report for Advanced Deep Reinforcement Learning.
+% This document uses the course-provided NeurIPS-style template.
+\documentclass{article}
+\usepackage[final]{adrl}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+\hypersetup{colorlinks=true,allcolors=blue!55!black}
+\renewcommand{\ttdefault}{pcr}
+\newcommand{\lprnd}{LP--RND}
+
+\title{Can Intrinsic Rewards Ignore the Noisy TV?\\
+A MiniGrid Study of Reducible vs.\ Irreducible Novelty}
+\author{Christian Jesinghaus\\
+\url{https://github.com/ChristianJesinghaus/RL-exercises}\\
+Poster:\\
+\href{https://docs.google.com/presentation/d/1PzbG9yEkm_U5BohGgoPV5AqeIblFksgSRxyDa3qFiPk/edit?usp=sharing}{Click here}
+}\\
+
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Prediction-error bonuses can mistake irrelevant stochasticity for useful
+novelty.  I test whether learning-progress-gated Random Network Distillation
+(\lprnd) mitigates this noisy-TV failure in a controlled sparse-reward
+MiniGrid task.  Across five seeds and 100k training steps, \lprnd{} at
+$\beta=0.01$ reduced the late-stage intrinsic signal inside the distractor by
+94.6\% relative to RND and reduced its inside/outside ratio from 45.4 to 15.8.
+However, it did not reduce distractor-region visitation (0.110 versus 0.106),
+and its success-rate AUC (0.270) remained below the extrinsic-only DQN
+baseline (0.438).  Both intrinsic methods failed at $\beta\geq0.05$.  Thus,
+learning progress strongly mitigated the signal-level failure, but did not
+make the agent behaviorally ignore the distractor or improve task performance
+reliably.
+\end{abstract}
+
+\section{Introduction}
+We all know that feeling of wasting massive amounts of our time on an endless social-media feed without any real life value. Most of the times we do not even remember what we have watched just minutes later. This is driven by carefully designed algorithms, formed in such a way, that it somewhat takes away our agency and keeps us trapped within an loop of doomscrolling. Translating this issue to a common RL setting opens up the topic of this work:\\\\
+Sparse rewards make directed exploration difficult because most interactions give no
+learning signal.  Intrinsic motivation addresses this by rewarding novel or
+surprising observations~\citep{bellemare-nips16,burda-iclr19}.  Prediction
+error is an appealing novelty proxy, but it conflates two causes:\\ 
+(i) Error that decreases as the agent learns and (ii) Error caused by stochastic, task irrelevant observations.  The latter remains unpredictable forever.  Surprise is
+therefore not necessarily progress. An agent can be rewarded for watching a
+``noisy TV'' (or Phone screen) instead of solving its task~\citep{mavorparker2022noisytv}.
+
+This report asks: \emph{Can learning progress separate learnable novelty from
+irreducible noise, and does that separation reduce noisy-TV distraction while
+preserving useful exploration?}  The question has three operational parts:
+whether \lprnd{} (i) suppresses the intrinsic signal inside the TV, (ii)
+reduces visits to its region, and (iii) preserves or improves greedy task
+performance.  I isolate the failure in an $11\times11$ FourRooms task. A fixed
+$2\times2$ region near the start resamples an irrelevant 16-dimensional
+vector without changing transitions or extrinsic rewards.  I compare Double
+DQN, standard RND, and a simple \lprnd{} bonus that rewards only the
+improvement over a lagged predictor.
+
+
+I separately measure (i) intrinsic signal inside versus outside the TV,
+(ii) visits to its region, and (iii) greedy extrinsic performance.  This
+separation reveals a qualified result, as of that the gate suppresses most of the noisy
+signal, yet this mechanism-level improvement does not translate into less TV
+visitation or better performance.
+
+\section{Related Work}
+DQN learns action values from replayed experience~\citep{mnih-nature15}. All
+agents here use the Double-DQN target to reduce maximization
+bias~\citep{vanhasselt-aaai16}.  Count-based bonuses formalize exploration as
+novel-state visitation~\citep{bellemare-nips16}.  RND instead predicts the
+features of a fixed random network and uses its prediction error as
+novelty~\citep{burda-iclr19}.  Its simplicity makes the irreducible-error
+failure especially transparent.
+
+Prior work addresses noisy TV using explicit aleatoric-uncertainty estimates
+or learning-progress monitoring~\citep{mavorparker2022noisytv,hou2025beyond}.
+The present method is a deliberately small lagged-predictor test of the same
+principle, not an ensemble uncertainty model.  The controlled MiniGrid setup
+also complements broader empirical comparisons of intrinsic rewards in
+navigation~\citep{kayal2025impact}.  MiniGrid itself provides the symbolic,
+partially observed environment interface~\citep{minigrid2023}.
+
+\section{Approach}
+\paragraph{Controlled environment.}
+Figure~\ref{fig:environment} shows the fixed start, goal, walls, openings, and
+TV region.  The agent chooses among turn left, turn right, and move forward.
+Episodes last at most 200 steps.  Its 167-dimensional input contains the
+normalized $7\times7\times3$ egocentric symbolic image, a four-dimensional
+direction one-hot vector, and the 16-dimensional TV vector.  The latter is
+sampled uniformly in $[0,1]^{16}$ at every observation inside the TV region
+and is zero elsewhere.  In the clean control it is zero everywhere.  Global
+position is used only for diagnostics, never by the policy or intrinsic
+module.  The fixed start at $(2,2)$ lies inside the $2\times2$ TV region, so
+region occupancy includes unavoidable initial exposure as well as voluntary
+dwelling or returns.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.54\linewidth]{figures/environment_schematic.pdf}
+  \caption{The controlled $11\times11$ FourRooms task. TV noise affects only
+  the appended observation vector; dynamics, goal, and reward are unchanged.}
+  \label{fig:environment}
+\end{figure}
+
+\paragraph{Agents and intrinsic rewards.}
+Each Q-network is a two-hidden-layer MLP with 128 units per layer. RND uses a
+fixed target $f$ and trainable predictor $g_\theta$, both with 128-unit hidden
+layers and 64-dimensional outputs. For observation $o_t$, standard RND uses
+\begin{equation}
+e_\theta(o_t)=\frac{1}{64}\lVert g_\theta(o_t)-f(o_t)\rVert_2^2,
+\qquad r_t^{\mathrm{RND}}=e_\theta(o_t).
+\label{eq:rnd}
+\end{equation}
+\lprnd{} retains a frozen lagged predictor $g_{\bar\theta}$ and computes
+\begin{equation}
+r_t^{\mathrm{LP}}=\max\{0,
+e_{\bar\theta}(o_t)-e_\theta(o_t)\}.
+\label{eq:lp}
+\end{equation}
+The lagged weights are replaced by the current predictor every 1,000 steps.
+Conceptually, RND rewards current surprise, whereas \lprnd{} rewards a positive
+reduction in surprise. Thus, a reducible error earns reward while an equally
+high but persistent error should not. The chosen signal is divided by its
+online running standard deviation, clipped to $[0,5]$, and added as
+$r'_t=r_t^{\mathrm{ext}}+\beta r_t^{\mathrm{int}}$. This pointwise
+lagged-predictor construction is deliberately simpler than full Learning
+Progress Monitoring, which uses an action-conditioned dynamics model and a
+separate model of expected previous error~\citep{hou2025beyond}; no equivalent
+information-gain guarantee is claimed here. Both the Q-network and intrinsic
+module receive the same noisy observation. The shaped reward is computed at
+collection time and stored unchanged in replay. Evaluation is greedy and
+reports extrinsic reward only.
+
+\section{Experiments}
+\paragraph{Protocol.}
+All conditions use five seeds and 100k environment steps. DQN is run once per
+seed; RND and \lprnd{} use $\beta\in\{0.01,0.05,0.1\}$, producing 35 noisy-TV
+runs. A clean sanity check adds five seeds each for DQN, RND, and \lprnd{} at
+$\beta=0.01$ (15 runs). Greedy success is estimated with 20 episodes at step
+zero and every 10k steps. The normalized trapezoidal area under this curve
+(AUC) is the primary performance summary. Final success is less robust to the
+visible checkpoint-to-checkpoint instability. Means and percentile 95\%
+confidence intervals use 2,000 bootstrap resamples over seeds. The
+``tail'' diagnostic averages the last 20\% of the 1,000-step training bins.
+
+Shared settings are $\gamma=0.99$, Adam learning rate $10^{-4}$, batch size
+64, replay capacity 50k, learning start at 1,000 steps, one update per step,
+target synchronization every 1,000 steps, and $\epsilon$ annealed linearly
+from 1.0 to 0.05 over 50k steps. Runs used CPU only on Ubuntu with an Intel
+Xeon w3-2525 and 32 GiB RAM, one PyTorch thread per run. The 35-run main sweep
+used two concurrent jobs. The clean sweep ran serially. 
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/results_overview.pdf}
+  \caption{Five-seed means and 95\% bootstrap intervals. Shading in (a) is
+  the interval over seeds. All intrinsic-agent points use $\beta=0.01$.
+  \textbf{(a)} Noisy-TV greedy success remains unstable. \textbf{(b)} \lprnd{}
+  improves nominal noisy-TV AUC over RND but not DQN. \textbf{(c)} Noise
+  creates strong tail signal selectivity; \lprnd{} reduces but does not remove
+  it. \textbf{(d)} Signal attenuation does not reduce TV-region visitation.}
+  \label{fig:overview}
+\end{figure}
+
+\paragraph{Results.}
+At $\beta=0.01$, noisy-TV DQN achieved AUC $0.438$ [0.206, 0.601], compared
+with $0.178$ [0.030, 0.354] for RND and $0.270$ [0.130, 0.410] for \lprnd{}
+(Figure~\ref{fig:overview}b). Clean-control AUC was 0.220, 0.260, and 0.190,
+respectively. \lprnd{} therefore partially recovered RND performance, but did
+not reach DQN. DQN and \lprnd{} were nominally better under noise and RND was
+worse, yet overlapping intervals and mixed seedwise changes provide no
+evidence that noise helps. DQN has no intrinsic mechanism through which this
+could occur. The TV vector only perturbs inputs, replay, and bootstrapped Q
+estimates, allowing five unstable runs to follow different trajectories. Its
+third reward was nominally earlier under noise (7.9k versus 8.9k steps), but
+with broad variation. Residual \lprnd{} reward could likewise prolong
+exploration, but this remains an untested explanation.
+
+Figure~\ref{fig:overview}a shows what AUC averages over. All methods remain at
+zero through 20k steps. DQN and \lprnd{} rise by 30--40k, while RND improves
+later. None converges monotonically: DQN moves from 0.73 at 40k to 0.40 at
+60k and 0.80 at 90k. \lprnd{} repeatedly falls from 0.60 to 0.20 before ending
+at 0.60. RND stays near 0.15--0.25 through 80k, spikes to 0.60, and ends at
+0.36. Seed-level greedy outcomes are mostly all-or-none, so the mean largely
+counts seeds currently retaining a successful policy. These reversals expose
+policy instability and make AUC more informative than the final checkpoint.
+
+
+Tail intrinsic selectivity divides the mean normalized bonus per transition
+inside versus outside the TV over the final 20k steps. One denotes equal
+signal. RND's 45.4 [27.7, 64.9] therefore means roughly 45 times more late
+intrinsic reward inside. \lprnd{} reduced this to 15.8 [8.7, 20.7], 65\% less
+relative bias, while clean ratios below one (RND 0.75; \lprnd{} 0.76) locate
+the effect in the stochastic vector. Since a small outside denominator can
+inflate a ratio, the absolute inside-TV reduction from
+$8.92\times10^{-3}$ to $4.81\times10^{-4}$ (94.6\%) provides complementary
+evidence. However, the pointwise estimator retains only positive error
+changes. Consequently, even zero-mean fluctuations can have a positive
+expected bonus after the $\max(0,\cdot)$ operation. The outside signal also
+fell by about 68\%, consistent with \lprnd{} suppressing useful curiosity as
+well as noise. Selectivity measures this incentive landscape, not behavior.
+
+That distinction appears in visitation (Figure~\ref{fig:overview}d): RND spent
+0.106 [0.095, 0.119] of training in the TV region and \lprnd{} spent 0.110
+[0.093, 0.131]. Removing attraction is not an avoidance penalty, and the
+start inside the TV makes part of this occupancy unavoidable. Moreover, the
+Q-network still sees the random vector, while shaped rewards assigned during
+early exploration remain fixed in the 50k replay buffer after the current
+bonus has decayed. These mechanisms can delay or prevent translation from
+signal attenuation to behavior. DQN was nominally lower under noise than
+clean (0.080 versus 0.090), but overlapping intervals, altered Q values,
+different paths, and episode lengths make this weak evidence rather than
+learned avoidance. Finally, both intrinsic methods obtained zero success and
+AUC at $\beta=0.05$ and 0.1 while TV fractions increased
+(Table~\ref{tab:main}), showing a narrow useful reward scale.
+
+\begin{table}[t]
+\caption{Noisy-TV main experiment. Values are five-seed means. Brackets show
+the 95\% bootstrap interval for AUC. Tail I/O is the normalized intrinsic
+signal inside divided by outside the TV region.}
+\label{tab:main}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3.0pt}
+\begin{tabular}{llrrrr}
+\toprule
+Method & $\beta$ & Final success & AUC [95\% CI] & TV fraction & Tail I/O \\
+\midrule
+DQN     & --   & .600 & .438 [.206,.601] & .080 & -- \\
+RND     & .01  & .360 & .178 [.030,.354] & .106 & 45.4 \\
+\lprnd  & .01  & .600 & .270 [.130,.410] & .110 & 15.8 \\
+RND     & .05  & .000 & .000 [.000,.000] & .197 & 11.6 \\
+\lprnd  & .05  & .000 & .000 [.000,.000] & .209 & 2.8 \\
+RND     & .10  & .000 & .000 [.000,.000] & .176 & 13.7 \\
+\lprnd  & .10  & .000 & .000 [.000,.000] & .154 & 3.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+The research question has a split answer. \lprnd{} reduced absolute TV signal
+almost nineteen-fold and relative selectivity by about 65\%, but residual bias
+remained, visitation did not fall, and no intrinsic method reliably surpassed
+DQN. It therefore mitigated the signal problem, not the behavioral problem.
+The nominal AUC gain over RND is compatible with partial repair, but the gate
+does not create an aversion, still ranks the TV above other regions, and also
+removes useful exploration. More fundamentally, learning progress identifies
+what is learnable rather than what is task-relevant. The strong DQN baseline
+also suggests that this small fixed task was not primarily exploration-limited.
+These results therefore do not reject learning progress in general; they bound
+the effectiveness of this simplified pointwise \lprnd{} implementation.
+
+The conclusion is limited by one layout, five unstable seeds, a forced TV
+start, observation noise, and a feed-forward policy. A stronger follow-up
+should first place the TV on an optional detour and measure time to leave,
+re-entry, dwell time, and excess path length. Algorithmically, expected or
+moving-average progress, a deadband for estimator noise, or the separate error
+model of full LPM could reduce the positive residual. Smaller or decaying
+$\beta$ values below 0.01 are motivated by the complete failure at 0.05 and
+0.1. Replay-time reward recomputation could prevent obsolete bonuses from
+persisting. Noise-invariant policy representations, more layouts, and at
+least ten paired seeds would then test whether cleaner incentives cause robust
+behavior and performance.
+
+Returning to doomscrolling, the transferable lesson is narrow.
+Novelty and progress differ, and assigning less value to a distraction may
+still be insufficient to change behavior. Human attention additionally
+involves habits, affect, social feedback, and incentives absent from MiniGrid.
+Learning-progress gating is a strong signal filter for this narraw RL example, but at the here proposed setting and implementation apparently not able to induce a beviour change towards less "doomscrolling".
+
+\paragraph{AI assistance disclosure.}
+ChatGPT 5.5 Thinking was used for ideation, literature search, implementation support,
+debugging, analysis, visualization, and language editing. I ran
+the experiments, inspected, changed and implemented code and outputs, and am responsible for all
+claims.
+
+
+
+
+% Everything from this point on does not count towards the page count.
+\newpage
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\newpage
+
+
+\end{document}
