@@ -5,6 +5,9 @@ Examples
 python -m rl_exercises.final_project.experiment \
     --method lp_rnd --seed 0 --beta 0.01 --total-steps 50000 \
     --output-dir results/lp_rnd_seed0
+
+    ChatGPT 5.5 Thinking was used for parts of code production, review and overall help in this file.
+
 """
 
 from __future__ import annotations
