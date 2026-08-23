@@ -8,6 +8,8 @@ The agent, DQN, RND, and LP-RND all receive exactly the same observation:
 
 Global position is added to ``info`` for diagnostics only.  It is never part of
 the observation returned to an agent or intrinsic-reward module.
+
+ChatGPT 5.5 Thinking was used for parts of code production, review and overall help in this file.
 """
 
 from __future__ import annotations
