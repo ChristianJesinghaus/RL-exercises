@@ -1,4 +1,7 @@
-"""Random Network Distillation and lagged-predictor learning progress."""
+"""Random Network Distillation and lagged-predictor learning progress.
+ChatGPT 5.5 Thinking was used for parts of code production, review and overall help in this file.
+
+"""
 
 from __future__ import annotations
 
